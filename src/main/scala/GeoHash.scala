@@ -1,9 +1,9 @@
 package light.util.geohash
 
-import scala.collection.mutable
+import scala.collection.mutable._
 
 
-// geohash精度的设定参考 http://en.wikipedia.org/wiki/Geohash
+// reference http://en.wikipedia.org/wiki/Geohash
 // geohash length   lat bits    lng bits    lat error   lng error   km error
 // 1                2           3           ±23         ±23         ±2500
 // 2                5           5           ± 2.8       ± 5.6       ±630
@@ -16,10 +16,10 @@ import scala.collection.mutable
 
 class Box(MinLatVal: Double, MaxLatVal: Double, MinLngVal: Double, MaxLngVal: Double) {
 
-  // 纬度
+  // latitude
   var MinLat:Double = MinLatVal
   var MaxLat:Double = MaxLatVal
-  // 经度
+  // longitude
   var MinLng:Double = MinLngVal
   var MaxLng:Double = MaxLngVal
 
@@ -39,11 +39,11 @@ class Box(MinLatVal: Double, MaxLatVal: Double, MinLngVal: Double, MaxLngVal: Do
 
 object GeoHash {
 
-  val BASE32			= "0123456789bcdefghjkmnpqrstuvwxyz"
-  val MAX_LATITUDE :Double	= 90
+  val BASE32			    = "0123456789bcdefghjkmnpqrstuvwxyz"
   val MIN_LATITUDE :Double	= -90
-  val MAX_LONGITUDE :Double	= 180
+  val MAX_LATITUDE :Double	= 90
   val MIN_LONGITUDE :Double	= -180
+  val MAX_LONGITUDE :Double	= 180
 
   val bits = Array[Byte](16, 8, 4, 2, 1)
   val base32 = BASE32.toCharArray
@@ -100,6 +100,63 @@ object GeoHash {
     var b = new Box(minLat,maxLat,minLng,maxLng)
 
     (geohash.toString, b)
+  }
+
+  def GetNeighbors(latitude: Double, longitude: Double, precision: Int): Array[String] = {
+
+    val neighbors = new ArrayBuffer[String]()
+
+    val (geohash, box) = Encode(latitude, longitude, precision)
+    neighbors.append(geohash)
+
+    val (geohashUp, _) = Encode((box.MinLat+box.MaxLat)/2+box.Height, (box.MinLng+box.MaxLng)/2, precision)
+    val (geohashDown, _) = Encode((box.MinLat+box.MaxLat)/2-box.Height, (box.MinLng+box.MaxLng)/2, precision)
+    val (geohashLeft, _) = Encode((box.MinLat+box.MaxLat)/2, (box.MinLng+box.MaxLng)/2-box.Width, precision)
+    val (geohashRight, _) = Encode((box.MinLat+box.MaxLat)/2, (box.MinLng+box.MaxLng)/2+box.Width, precision)
+    neighbors.appendAll(Seq(geohashUp,geohashDown,geohashLeft,geohashRight))
+
+    val (geohashLeftUp, _) = Encode((box.MinLat+box.MaxLat)/2+box.Height, (box.MinLng+box.MaxLng)/2-box.Width, precision)
+    val (geohashLeftDown, _) = Encode((box.MinLat+box.MaxLat)/2-box.Height, (box.MinLng+box.MaxLng)/2-box.Width, precision)
+    val (geohashRightUp, _) = Encode((box.MinLat+box.MaxLat)/2+box.Height, (box.MinLng+box.MaxLng)/2+box.Width, precision)
+    val (geohashRightDown, _) = Encode((box.MinLat+box.MaxLat)/2-box.Height, (box.MinLng+box.MaxLng)/2+box.Width, precision)
+    neighbors.appendAll(Seq(geohashLeftUp,geohashLeftDown,geohashRightUp,geohashRightDown))
+
+    neighbors.toArray
+  }
+
+  //
+  def DecodeBounds(geohash: String): ((Double,Double),(Double,Double)) = {
+
+    def toBitList(str: String) = str.flatMap {
+      char => ("00000" + base32.indexOf(char).toBinaryString ).
+             reverse.take(5).reverse.map('1' == ) } toList
+ 
+    def split(list: List[Boolean]): (List[Boolean], List[Boolean]) = {
+
+      list match{
+        case Nil => (Nil,Nil)
+        case x::Nil => (x::Nil,Nil)
+        case x::y::zs => val (xs,ys) = split(zs); (x::xs,y::ys)
+      }
+    }
+ 
+    def dehash(xs: List[Boolean], min: Double, max: Double): (Double,Double) = {
+
+      ((min,max) /: xs ) {
+        case ((min,max), bool) =>
+          if(bool) ((min + max)/2, max)
+          else (min, (min + max)/2)
+       }
+    }
+    
+    val (xs, ys) = split(toBitList(geohash))
+    (dehash(ys,MIN_LATITUDE,MAX_LATITUDE), dehash(xs,MIN_LONGITUDE,MAX_LONGITUDE))
+  }
+
+  def Decode( geohash:String ):(Double,Double) = {
+    DecodeBounds(geohash) match {
+      case ((minLat,maxLat),(minLng,maxLng)) => ((maxLat+minLat)/2, (maxLng+minLng)/2)
+    }
   }
 
 }

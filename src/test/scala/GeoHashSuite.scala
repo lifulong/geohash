@@ -6,10 +6,18 @@ import org.scalatest.matchers.ShouldMatchers
 class GeoHashSuite extends FunSuite with ShouldMatchers {
   import GeoHash._
 
-    val (id, box) = Encode(39.02474, -76.51100, 10)
+  test("test decoding") {
+    val (lat,lng) = Decode("dqcw4bnrs6s7")
+    lat should be ( 39.02474 plusOrMinus 0.00001)
+    lng should be (-76.51100 plusOrMinus 0.00001)
+  }
 
-    println(id)
-    println(box)
+  test("test encoding") {
+    val geohash = "dqcw4bnrs6s7"
+    val (lat,lng) = Decode(geohash)
+    val (geohash_, box) = Encode(lat,lng,12)
+    geohash_ should equal (geohash)
+  }
 
 }
 
