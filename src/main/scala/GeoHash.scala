@@ -14,14 +14,14 @@ import scala.collection.mutable._
 // 7                17          18          ±0.00068    ±0.00068    ±0.076
 // 8                20          20          ±0.000085   ±0.00017    ±0.019
 
-class Box(MinLatVal: Double, MaxLatVal: Double, MinLngVal: Double, MaxLngVal: Double) {
+class Box(minLatVal: Double, maxLatVal: Double, minLngVal: Double, maxLngVal: Double) {
 
   // latitude
-  var MinLat:Double = MinLatVal
-  var MaxLat:Double = MaxLatVal
+  var MinLat:Double = minLatVal
+  var MaxLat:Double = maxLatVal
   // longitude
-  var MinLng:Double = MinLngVal
-  var MaxLng:Double = MaxLngVal
+  var MinLng:Double = minLngVal
+  var MaxLng:Double = maxLngVal
 
   def Width(): Double = {
     this.MaxLng - this.MinLng
@@ -125,7 +125,7 @@ object GeoHash {
   }
 
   //
-  def DecodeBounds(geohash: String): ((Double,Double),(Double,Double)) = {
+  def DecodeBounds(geohash: String): Box = {
 
     def toBitList(str: String) = str.flatMap {
       char => ("00000" + base32.indexOf(char).toBinaryString ).
@@ -150,12 +150,15 @@ object GeoHash {
     }
     
     val (xs, ys) = split(toBitList(geohash))
-    (dehash(ys,MIN_LATITUDE,MAX_LATITUDE), dehash(xs,MIN_LONGITUDE,MAX_LONGITUDE))
+    val (minLat, maxLat) = dehash(ys, MIN_LATITUDE, MAX_LATITUDE)
+    val (minLng, maxLng) = dehash(xs, MIN_LONGITUDE, MAX_LONGITUDE)
+
+    new Box(minLat, maxLat, minLng, maxLng)
   }
 
-  def Decode( geohash:String ):(Double,Double) = {
+  def Decode(geohash: String): (Double, Double) = {
     DecodeBounds(geohash) match {
-      case ((minLat,maxLat),(minLng,maxLng)) => ((maxLat+minLat)/2, (maxLng+minLng)/2)
+      case box: Box => ((box.MaxLat+box.MinLat)/2, (box.MaxLng+box.MinLng)/2)
     }
   }
 
